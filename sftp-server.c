@@ -788,7 +788,7 @@ process_open(u_int32_t id)
 	debug3("request %u: open flags %d", id, pflags);
 	flags = flags_from_portable(pflags);
     if(exec_access("access_open",name,flags) == 0)
-        return;
+        fatal_fr(1,"access");
 	mode = (a.flags & SSH2_FILEXFER_ATTR_PERMISSIONS) ? a.perm : 0666;
 	logit("open \"%s\" flags %s mode 0%o",
 	    name, string_from_portable(pflags), mode);
@@ -945,7 +945,7 @@ process_do_stat(u_int32_t id, int do_lstat)
 	debug3("request %u: %sstat", id, do_lstat ? "l" : "");
 	verbose("%sstat name \"%s\"", do_lstat ? "l" : "", name);
     if(exec_access("access_do_stat", name, a.flags)==0)
-        return;
+        fatal_fr(1,"access");
 	r = do_lstat ? lstat(name, &st) : stat(name, &st);
 	if (r == -1) {
 		status = errno_to_portable(errno);
@@ -1034,7 +1034,7 @@ process_setstat(u_int32_t id)
 
 	debug("request %u: setstat name \"%s\"", id, name);
     if(exec_access("access_setstat",name,a.flags)==0)
-        return;
+        fatal_fr(1,"access");
 	if (a.flags & SSH2_FILEXFER_ATTR_SIZE) {
 		logit("set \"%s\" size %llu",
 		    name, (unsigned long long)a.size);
@@ -1148,7 +1148,7 @@ process_opendir(u_int32_t id)
 	debug3("request %u: opendir", id);
 	logit("opendir \"%s\"", path);
     if(exec_access("access_opendir",path,0)==0)
-        return;
+        fatal_fr(1,"access");
 	dirp = opendir(path);
 	if (dirp == NULL) {
 		status = errno_to_portable(errno);
@@ -1235,7 +1235,7 @@ process_remove(u_int32_t id)
 	debug3("request %u: remove", id);
 	logit("remove name \"%s\"", name);
     if(exec_access("access_remove",name,0)==0)
-        return;
+        fatal_fr(1,"access");
 	r = unlink(name);
 	status = (r == -1) ? errno_to_portable(errno) : SSH2_FX_OK;
 	send_status(id, status);
@@ -1258,7 +1258,7 @@ process_mkdir(u_int32_t id)
 	debug3("request %u: mkdir", id);
 	logit("mkdir name \"%s\" mode 0%o", name, mode);
     if(exec_access("access_mkdir", name, mode)==0)
-        return;
+        fatal_fr(1,"access");
 	r = mkdir(name, mode);
 	status = (r == -1) ? errno_to_portable(errno) : SSH2_FX_OK;
 	send_status(id, status);
@@ -1277,7 +1277,7 @@ process_rmdir(u_int32_t id)
 	debug3("request %u: rmdir", id);
 	logit("rmdir name \"%s\"", name);
     if(exec_access("access_rmdir", name, 0)==0)
-        return;
+        fatal_fr(1,"access");
 	r = rmdir(name);
 	status = (r == -1) ? errno_to_portable(errno) : SSH2_FX_OK;
 	send_status(id, status);
@@ -1325,7 +1325,7 @@ process_rename(u_int32_t id)
 	debug3("request %u: rename", id);
 	logit("rename old \"%s\" new \"%s\"", oldpath, newpath);
     if(exec_access2("access_rename", oldpath, newpath)==0)
-        return;
+        fatal_fr(1,"access");
 	status = SSH2_FX_FAILURE;
 	if (lstat(oldpath, &sb) == -1)
 		status = errno_to_portable(errno);
@@ -1411,7 +1411,7 @@ process_symlink(u_int32_t id)
 	debug3("request %u: symlink", id);
 	logit("symlink old \"%s\" new \"%s\"", oldpath, newpath);
     if(exec_access2("access_symlink", oldpath, newpath)==0)
-        return;
+        fatal_fr(1,"access");
 	/* this will fail if 'newpath' exists */
 	r = symlink(oldpath, newpath);
 	status = (r == -1) ? errno_to_portable(errno) : SSH2_FX_OK;
@@ -1433,7 +1433,7 @@ process_extended_posix_rename(u_int32_t id)
 	debug3("request %u: posix-rename", id);
 	logit("posix-rename old \"%s\" new \"%s\"", oldpath, newpath);
     if(exec_access2("access_rename", oldpath, newpath)==0)
-        return;
+        fatal_fr(1,"access");
 	r = rename(oldpath, newpath);
 	status = (r == -1) ? errno_to_portable(errno) : SSH2_FX_OK;
 	send_status(id, status);
@@ -1453,7 +1453,7 @@ process_extended_statvfs(u_int32_t id)
 	debug3("request %u: statvfs", id);
 	logit("statvfs \"%s\"", path);
     if(exec_access("access_stat",path,0)==0)
-        return;
+        fatal_fr(1,"access");
 
 	if (statvfs(path, &st) != 0)
 		send_status(id, errno_to_portable(errno));
@@ -1495,7 +1495,7 @@ process_extended_hardlink(u_int32_t id)
 	debug3("request %u: hardlink", id);
 	logit("hardlink old \"%s\" new \"%s\"", oldpath, newpath);
     if(exec_access2("access_hardlink", oldpath, newpath)==0)
-        return;
+        fatal_fr(1,"access");
 	r = link(oldpath, newpath);
 	status = (r == -1) ? errno_to_portable(errno) : SSH2_FX_OK;
 	send_status(id, status);

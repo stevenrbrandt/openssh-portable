@@ -6,7 +6,10 @@
 export PY_CFLAGS="$(pkg-config --cflags python3-embed)"
 export PY_LDFLAGS="$(pkg-config --libs python3-embed)"
 
+# Setting the rpath may be helpful
+export PY_RPATH="$(pkg-config --libs python3-embed|perl -p -e 's/-L/-Wl,-rpath=/'|awk '{print $1}')"
+
 # Now do the standard things...
 autoconf
-./configure --with-cflags="$PY_CFLAGS" --with-libs="$PY_LDFLAGS"
+./configure --with-cflags="$PY_CFLAGS" --with-libs="$PY_LDFLAGS $PY_RPATH"
 make -j10 |& tee make.out

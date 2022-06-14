@@ -1,3 +1,11 @@
+# Modified Portable OpenSSH
+
+This version of OpenSSH includes callouts to Python functions to (potentially) deny certain actions.
+
+It comes with `build.sh` which shows how to compile OpenSSH with Python linkage.
+
+It also comes with access.py, which is an example script designed to limit the OpenSSH server.
+
 # Portable OpenSSH
 
 [![C/C++ CI](https://github.com/openssh/openssh-portable/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/openssh/openssh-portable/actions/workflows/c-cpp.yml)
