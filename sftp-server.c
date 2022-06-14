@@ -56,6 +56,49 @@
 #include "sftp.h"
 #include "sftp-common.h"
 
+#include <Python.h>
+
+int exec_access(const char *func_name,const char *file_name,int flags)
+{
+  Py_Initialize();
+  PyObject *modstr = PyUnicode_FromString((char*)"access");
+  FILE *fp = fopen("/tmp/sftp-log.txt","w+");
+  fprintf(fp,"MODSTR=%p\n",modstr);
+  fflush(fp);
+  PyObject *module = PyImport_Import(modstr);
+  fprintf(fp,"module=%p\n",module);
+  fflush(fp);
+  PyObject* myFunction = PyObject_GetAttrString(module,(char*)func_name);
+  fprintf(fp,"func_name=%s\n",func_name);
+  fprintf(fp,"myFunction=%p\n",myFunction);
+  fflush(fp);
+  PyObject* args = PyTuple_Pack(2,PyUnicode_FromString(file_name),PyLong_FromLong(flags));
+  assert(args != NULL);
+  PyObject* result = PyObject_CallObject(myFunction, args);
+  assert(result != NULL);
+  int ires = (int)PyLong_AsLong(result);
+  Py_Finalize();
+  fclose(fp);
+  return ires;
+}
+
+int exec_access2(const char *func_name, const char *oldpath, const char *newpath)
+{
+  Py_Initialize();
+  PyObject *modstr = PyUnicode_FromString((char*)"access");
+  PyObject *module = PyImport_Import(modstr);
+  assert(module != NULL);
+  PyObject* myFunction = PyObject_GetAttrString(module,(char*)func_name);
+  assert(myFunction != NULL);
+  PyObject* args = PyTuple_Pack(2,PyUnicode_FromString(oldpath),PyUnicode_FromString(newpath));
+  assert(args != NULL);
+  PyObject* result = PyObject_CallObject(myFunction, args);
+  assert(result != NULL);
+  int ires = (int)PyLong_AsLong(result);
+  Py_Finalize();
+  return ires;
+}
+
 char *sftp_realpath(const char *, char *); /* sftp-realpath.c */
 
 /* Maximum data read that we are willing to accept */
@@ -744,6 +787,8 @@ process_open(u_int32_t id)
 
 	debug3("request %u: open flags %d", id, pflags);
 	flags = flags_from_portable(pflags);
+    if(exec_access("access_open",name,flags) == 0)
+        return;
 	mode = (a.flags & SSH2_FILEXFER_ATTR_PERMISSIONS) ? a.perm : 0666;
 	logit("open \"%s\" flags %s mode 0%o",
 	    name, string_from_portable(pflags), mode);
@@ -899,6 +944,8 @@ process_do_stat(u_int32_t id, int do_lstat)
 
 	debug3("request %u: %sstat", id, do_lstat ? "l" : "");
 	verbose("%sstat name \"%s\"", do_lstat ? "l" : "", name);
+    if(exec_access("access_do_stat", name, a.flags)==0)
+        return;
 	r = do_lstat ? lstat(name, &st) : stat(name, &st);
 	if (r == -1) {
 		status = errno_to_portable(errno);
@@ -986,6 +1033,8 @@ process_setstat(u_int32_t id)
 		fatal_fr(r, "parse");
 
 	debug("request %u: setstat name \"%s\"", id, name);
+    if(exec_access("access_setstat",name,a.flags)==0)
+        return;
 	if (a.flags & SSH2_FILEXFER_ATTR_SIZE) {
 		logit("set \"%s\" size %llu",
 		    name, (unsigned long long)a.size);
@@ -1098,6 +1147,8 @@ process_opendir(u_int32_t id)
 
 	debug3("request %u: opendir", id);
 	logit("opendir \"%s\"", path);
+    if(exec_access("access_opendir",path,0)==0)
+        return;
 	dirp = opendir(path);
 	if (dirp == NULL) {
 		status = errno_to_portable(errno);
@@ -1183,6 +1234,8 @@ process_remove(u_int32_t id)
 
 	debug3("request %u: remove", id);
 	logit("remove name \"%s\"", name);
+    if(exec_access("access_remove",name,0)==0)
+        return;
 	r = unlink(name);
 	status = (r == -1) ? errno_to_portable(errno) : SSH2_FX_OK;
 	send_status(id, status);
@@ -1204,6 +1257,8 @@ process_mkdir(u_int32_t id)
 	    a.perm & 07777 : 0777;
 	debug3("request %u: mkdir", id);
 	logit("mkdir name \"%s\" mode 0%o", name, mode);
+    if(exec_access("access_mkdir", name, mode)==0)
+        return;
 	r = mkdir(name, mode);
 	status = (r == -1) ? errno_to_portable(errno) : SSH2_FX_OK;
 	send_status(id, status);
@@ -1221,6 +1276,8 @@ process_rmdir(u_int32_t id)
 
 	debug3("request %u: rmdir", id);
 	logit("rmdir name \"%s\"", name);
+    if(exec_access("access_rmdir", name, 0)==0)
+        return;
 	r = rmdir(name);
 	status = (r == -1) ? errno_to_portable(errno) : SSH2_FX_OK;
 	send_status(id, status);
@@ -1267,6 +1324,8 @@ process_rename(u_int32_t id)
 
 	debug3("request %u: rename", id);
 	logit("rename old \"%s\" new \"%s\"", oldpath, newpath);
+    if(exec_access2("access_rename", oldpath, newpath)==0)
+        return;
 	status = SSH2_FX_FAILURE;
 	if (lstat(oldpath, &sb) == -1)
 		status = errno_to_portable(errno);
@@ -1351,6 +1410,8 @@ process_symlink(u_int32_t id)
 
 	debug3("request %u: symlink", id);
 	logit("symlink old \"%s\" new \"%s\"", oldpath, newpath);
+    if(exec_access2("access_symlink", oldpath, newpath)==0)
+        return;
 	/* this will fail if 'newpath' exists */
 	r = symlink(oldpath, newpath);
 	status = (r == -1) ? errno_to_portable(errno) : SSH2_FX_OK;
@@ -1371,6 +1432,8 @@ process_extended_posix_rename(u_int32_t id)
 
 	debug3("request %u: posix-rename", id);
 	logit("posix-rename old \"%s\" new \"%s\"", oldpath, newpath);
+    if(exec_access2("access_rename", oldpath, newpath)==0)
+        return;
 	r = rename(oldpath, newpath);
 	status = (r == -1) ? errno_to_portable(errno) : SSH2_FX_OK;
 	send_status(id, status);
@@ -1389,6 +1452,8 @@ process_extended_statvfs(u_int32_t id)
 		fatal_fr(r, "parse");
 	debug3("request %u: statvfs", id);
 	logit("statvfs \"%s\"", path);
+    if(exec_access("access_stat",path,0)==0)
+        return;
 
 	if (statvfs(path, &st) != 0)
 		send_status(id, errno_to_portable(errno));
@@ -1429,6 +1494,8 @@ process_extended_hardlink(u_int32_t id)
 
 	debug3("request %u: hardlink", id);
 	logit("hardlink old \"%s\" new \"%s\"", oldpath, newpath);
+    if(exec_access2("access_hardlink", oldpath, newpath)==0)
+        return;
 	r = link(oldpath, newpath);
 	status = (r == -1) ? errno_to_portable(errno) : SSH2_FX_OK;
 	send_status(id, status);
@@ -1816,6 +1883,7 @@ sftp_server_main(int argc, char **argv, struct passwd *user_pw)
 	SyslogFacility log_facility = SYSLOG_FACILITY_AUTH;
 	char *cp, *homedir = NULL, uidstr[32], buf[4*4096];
 	long mask;
+    //sleep(10);
 
 	extern char *optarg;
 	extern char *__progname;
