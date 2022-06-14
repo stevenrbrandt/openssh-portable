@@ -4,7 +4,7 @@ This version of OpenSSH includes callouts to Python functions to (potentially) d
 
 It comes with `build.sh` which shows how to compile OpenSSH with Python linkage.
 
-It also comes with access.py, which is an example script designed to limit the OpenSSH server.
+It also comes with `access.py`, which is an example script designed to limit the OpenSSH server.
 
 # Portable OpenSSH
 
